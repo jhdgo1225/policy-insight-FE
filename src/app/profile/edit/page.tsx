@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import Header from "@/components/layout/Header";
@@ -15,63 +15,78 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Mail, Phone } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera, Phone } from "lucide-react";
 
 export default function ProfileEditPage() {
   const router = useRouter();
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, updateProfileImage } = useAuthStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
     phone: user?.phone || "",
-    password: "",
-    passwordConfirm: "",
+    currentPassword: "",
+    newPassword: "",
+    newPasswordConfirm: "",
   });
+
+  const [profileImagePreview, setProfileImagePreview] = useState<
+    string | undefined
+  >(user?.profileImage);
 
   const [verificationStatus, setVerificationStatus] = useState({
-    email: false,
     phone: false,
   });
 
-  const [verificationCodes, setVerificationCodes] = useState({
-    email: "",
-    phone: "",
-  });
-
-  const [showVerification, setShowVerification] = useState({
-    email: false,
-    phone: false,
-  });
+  const [verificationCode, setVerificationCode] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleVerificationCodeChange = (
-    type: "email" | "phone",
-    value: string
-  ) => {
-    setVerificationCodes((prev) => ({ ...prev, [type]: value }));
+  const handleProfileImageClick = () => {
+    fileInputRef.current?.click();
   };
 
-  const handleSendVerification = (type: "email" | "phone") => {
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 이미지 파일인지 확인
+      if (!file.type.startsWith("image/")) {
+        alert("이미지 파일만 업로드 가능합니다.");
+        return;
+      }
+
+      // 파일 크기 확인 (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("이미지 크기는 5MB 이하여야 합니다.");
+        return;
+      }
+
+      // 미리보기 생성
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setProfileImagePreview(result);
+        updateProfileImage(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSendVerification = () => {
     // TODO: 실제 인증 코드 발송 API 호출
-    console.log(`${type} 인증 코드 발송`);
-    setShowVerification((prev) => ({ ...prev, [type]: true }));
-    alert(
-      `${
-        type === "email" ? "이메일" : "전화번호"
-      }로 인증 코드가 발송되었습니다.`
-    );
+    console.log("전화번호 인증 코드 발송");
+    setShowVerification(true);
+    alert("전화번호로 인증 코드가 발송되었습니다.");
   };
 
-  const handleVerifyCode = (type: "email" | "phone") => {
+  const handleVerifyCode = () => {
     // TODO: 실제 인증 코드 검증 API 호출
-    const code = verificationCodes[type];
-    if (code === "123456") {
-      setVerificationStatus((prev) => ({ ...prev, [type]: true }));
+    if (verificationCode === "123456") {
+      setVerificationStatus({ phone: true });
       alert("인증이 완료되었습니다.");
     } else {
       alert("인증 코드가 올바르지 않습니다.");
@@ -82,21 +97,27 @@ export default function ProfileEditPage() {
     e.preventDefault();
 
     // 비밀번호 변경 시 검증
-    if (formData.password) {
-      if (formData.password !== formData.passwordConfirm) {
-        alert("비밀번호가 일치하지 않습니다.");
+    if (formData.newPassword) {
+      // 현재 비밀번호 확인
+      if (!formData.currentPassword) {
+        alert("현재 비밀번호를 입력해주세요.");
         return;
       }
-      if (formData.password.length < 8) {
-        alert("비밀번호는 최소 8자 이상이어야 합니다.");
-        return;
-      }
-    }
 
-    // 이메일 변경 시 인증 확인
-    if (formData.email !== user?.email && !verificationStatus.email) {
-      alert("이메일 인증을 완료해주세요.");
-      return;
+      // 새 비밀번호 검증
+      if (formData.newPassword.length < 8) {
+        alert("새 비밀번호는 최소 8자 이상이어야 합니다.");
+        return;
+      }
+
+      // 새 비밀번호 확인
+      if (formData.newPassword !== formData.newPasswordConfirm) {
+        alert("새 비밀번호가 일치하지 않습니다.");
+        return;
+      }
+
+      // TODO: 실제 비밀번호 변경 API 호출
+      console.log("비밀번호 변경");
     }
 
     // 전화번호 변경 시 인증 확인
@@ -107,8 +128,6 @@ export default function ProfileEditPage() {
 
     // TODO: 실제 업데이트 API 호출
     updateUser({
-      name: formData.name,
-      email: formData.email,
       phone: formData.phone,
     });
 
@@ -148,18 +167,67 @@ export default function ProfileEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle>기본 정보</CardTitle>
-                <CardDescription>이름을 수정할 수 있습니다.</CardDescription>
+                <CardDescription>
+                  프로필 사진을 변경할 수 있습니다. 이메일과 이름은 변경할 수
+                  없습니다.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* 프로필 사진 */}
+                <div className="flex items-center gap-6">
+                  <div className="relative">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={profileImagePreview} />
+                      <AvatarFallback className="text-2xl">
+                        {user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0"
+                      onClick={handleProfileImageClick}>
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleProfileImageChange}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">프로필 사진</p>
+                    <p className="text-sm text-muted-foreground">
+                      JPG, PNG 또는 GIF (최대 5MB)
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* 이메일 (읽기 전용) */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">이메일 (아이디)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={user.email}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
+                {/* 이름 (읽기 전용) */}
                 <div className="space-y-2">
                   <Label htmlFor="name">이름</Label>
                   <Input
                     id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="이름을 입력하세요"
-                    required
+                    value={user.name}
+                    disabled
+                    className="bg-muted"
                   />
                 </div>
               </CardContent>
@@ -170,104 +238,57 @@ export default function ProfileEditPage() {
               <CardHeader>
                 <CardTitle>비밀번호 변경</CardTitle>
                 <CardDescription>
-                  비밀번호를 변경하려면 새 비밀번호를 입력하세요.
+                  비밀번호를 변경하려면 현재 비밀번호와 새 비밀번호를
+                  입력하세요.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">새 비밀번호</Label>
+                  <Label htmlFor="currentPassword">현재 비밀번호</Label>
                   <Input
-                    id="password"
-                    name="password"
+                    id="currentPassword"
+                    name="currentPassword"
                     type="password"
-                    value={formData.password}
+                    value={formData.currentPassword}
                     onChange={handleChange}
-                    placeholder="새 비밀번호 (최소 8자)"
+                    placeholder="현재 비밀번호를 입력하세요"
                   />
+                </div>
+
+                {formData.currentPassword && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">새 비밀번호</Label>
+                      <Input
+                        id="newPassword"
+                        name="newPassword"
+                        type="password"
+                        value={formData.newPassword}
+                        onChange={handleChange}
+                        placeholder="새 비밀번호 (최소 8자)"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="newPasswordConfirm">
+                        새 비밀번호 확인
+                      </Label>
+                      <Input
+                        id="newPasswordConfirm"
+                        name="newPasswordConfirm"
+                        type="password"
+                        value={formData.newPasswordConfirm}
+                        onChange={handleChange}
+                        placeholder="새 비밀번호를 다시 입력하세요"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {!formData.currentPassword && (
                   <p className="text-sm text-muted-foreground">
                     비밀번호를 변경하지 않으려면 비워두세요.
                   </p>
-                </div>
-
-                {formData.password && (
-                  <div className="space-y-2">
-                    <Label htmlFor="passwordConfirm">비밀번호 확인</Label>
-                    <Input
-                      id="passwordConfirm"
-                      name="passwordConfirm"
-                      type="password"
-                      value={formData.passwordConfirm}
-                      onChange={handleChange}
-                      placeholder="비밀번호를 다시 입력하세요"
-                      required={!!formData.password}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 이메일 변경 카드 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>이메일 변경</CardTitle>
-                <CardDescription>
-                  이메일을 변경하려면 인증이 필요합니다.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="이메일을 입력하세요"
-                      required
-                      disabled={verificationStatus.email}
-                    />
-                    {formData.email !== user.email &&
-                      !verificationStatus.email && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleSendVerification("email")}
-                          className="gap-2 whitespace-nowrap">
-                          <Mail className="h-4 w-4" />
-                          인증 발송
-                        </Button>
-                      )}
-                  </div>
-                  {verificationStatus.email && (
-                    <p className="text-sm text-green-600">✓ 인증 완료</p>
-                  )}
-                </div>
-
-                {showVerification.email && !verificationStatus.email && (
-                  <div className="space-y-2 p-4 bg-muted rounded-lg">
-                    <Label htmlFor="emailCode">인증 코드</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="emailCode"
-                        value={verificationCodes.email}
-                        onChange={(e) =>
-                          handleVerificationCodeChange("email", e.target.value)
-                        }
-                        placeholder="인증 코드를 입력하세요"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => handleVerifyCode("email")}
-                        className="whitespace-nowrap">
-                        확인
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      테스트 코드: 123456
-                    </p>
-                  </div>
                 )}
               </CardContent>
             </Card>
@@ -299,7 +320,7 @@ export default function ProfileEditPage() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => handleSendVerification("phone")}
+                          onClick={handleSendVerification}
                           className="gap-2 whitespace-nowrap">
                           <Phone className="h-4 w-4" />
                           인증 발송
@@ -311,21 +332,19 @@ export default function ProfileEditPage() {
                   )}
                 </div>
 
-                {showVerification.phone && !verificationStatus.phone && (
+                {showVerification && !verificationStatus.phone && (
                   <div className="space-y-2 p-4 bg-muted rounded-lg">
                     <Label htmlFor="phoneCode">인증 코드</Label>
                     <div className="flex gap-2">
                       <Input
                         id="phoneCode"
-                        value={verificationCodes.phone}
-                        onChange={(e) =>
-                          handleVerificationCodeChange("phone", e.target.value)
-                        }
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
                         placeholder="인증 코드를 입력하세요"
                       />
                       <Button
                         type="button"
-                        onClick={() => handleVerifyCode("phone")}
+                        onClick={handleVerifyCode}
                         className="whitespace-nowrap">
                         확인
                       </Button>

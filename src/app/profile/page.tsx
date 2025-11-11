@@ -12,8 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Phone, Edit, LogOut, Trash2 } from "lucide-react";
+import { Mail, Phone, Edit, LogOut, Trash2 } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -65,16 +66,21 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 이름 */}
-                <div className="flex items-start gap-4">
-                  <div className="mt-1">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
+                {/* 프로필 사진 및 이름 */}
+                <div className="flex items-center gap-6">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={user.profileImage} />
+                    <AvatarFallback className="text-2xl">
+                      {user.name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">
                       이름
                     </div>
-                    <div className="text-base">{user.name || "-"}</div>
+                    <div className="text-2xl font-semibold">
+                      {user.name || "-"}
+                    </div>
                   </div>
                 </div>
 
