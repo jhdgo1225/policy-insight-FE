@@ -1,25 +1,48 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { useAuthStore } from '@/store/authStore';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { withGuest } from "@/components/auth/RouteGuard";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const login = useAuthStore((state) => state.login);
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
-    router.push('/dashboard');
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const result = await login(email, password);
+
+      if (result.success) {
+        router.push("/dashboard");
+      } else {
+        setError(result.error || "로그인에 실패했습니다.");
+      }
+    } catch {
+      setError("로그인 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -31,8 +54,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Policy Insight</h1>
-          <p className="text-sm text-gray-600">AI 기반 국민 입법 수요 분석 플랫폼</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Policy Insight
+          </h1>
+          <p className="text-sm text-gray-600">
+            AI 기반 국민 입법 수요 분석 플랫폼
+          </p>
         </div>
 
         <Card className="shadow-lg">
@@ -44,6 +71,12 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  {error}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">이메일</Label>
                 <Input
@@ -52,6 +85,8 @@ export default function LoginPage() {
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -63,12 +98,14 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="current-password"
                   required
                 />
               </div>
 
-              <Button type="submit" className="w-full">
-                로그인
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "로그인 중..." : "로그인"}
               </Button>
             </form>
 
@@ -85,9 +122,8 @@ export default function LoginPage() {
               <div className="mt-6 grid grid-cols-3 gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => handleSocialLogin('구글')}
-                  className="w-full"
-                >
+                  onClick={() => handleSocialLogin("구글")}
+                  className="w-full">
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
                       fill="currentColor"
@@ -109,16 +145,14 @@ export default function LoginPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleSocialLogin('네이버')}
-                  className="w-full"
-                >
+                  onClick={() => handleSocialLogin("네이버")}
+                  className="w-full">
                   <span className="text-green-600 font-bold">N</span>
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleSocialLogin('카카오')}
-                  className="w-full"
-                >
+                  onClick={() => handleSocialLogin("카카오")}
+                  className="w-full">
                   <span className="text-yellow-500 font-bold">K</span>
                 </Button>
               </div>
@@ -126,11 +160,15 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center text-sm space-y-2">
               <div className="flex justify-center gap-4">
-                <Link href="/find-account" className="text-gray-600 hover:text-gray-900">
+                <Link
+                  href="/find-account"
+                  className="text-gray-600 hover:text-gray-900">
                   아이디/비밀번호 찾기
                 </Link>
                 <span className="text-gray-300">|</span>
-                <Link href="/register" className="text-gray-600 hover:text-gray-900">
+                <Link
+                  href="/register"
+                  className="text-gray-600 hover:text-gray-900">
                   회원가입
                 </Link>
               </div>
@@ -141,3 +179,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default withGuest(LoginPage);
