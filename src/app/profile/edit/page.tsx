@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { withAuth } from "@/components/auth/RouteGuard";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +20,13 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Phone } from "lucide-react";
 
-export default function ProfileEditPage() {
+function ProfileEditPage() {
   const router = useRouter();
   const { user, updateUser, updateProfileImage } = useAuthStore();
+  const { updateUserInfo } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     phone: user?.phone || "",
@@ -93,57 +98,81 @@ export default function ProfileEditPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    // 비밀번호 변경 시 검증
-    if (formData.newPassword) {
-      // 현재 비밀번호 확인
-      if (!formData.currentPassword) {
-        alert("현재 비밀번호를 입력해주세요.");
+    try {
+      // 비밀번호 변경 시 검증
+      if (formData.newPassword) {
+        // 현재 비밀번호 확인
+        if (!formData.currentPassword) {
+          setError("현재 비밀번호를 입력해주세요.");
+          setIsLoading(false);
+          return;
+        }
+
+        // 새 비밀번호 검증
+        if (formData.newPassword.length < 8) {
+          setError("새 비밀번호는 최소 8자 이상이어야 합니다.");
+          setIsLoading(false);
+          return;
+        }
+
+        // 새 비밀번호 확인
+        if (formData.newPassword !== formData.newPasswordConfirm) {
+          setError("새 비밀번호가 일치하지 않습니다.");
+          setIsLoading(false);
+          return;
+        }
+
+        // TODO: 비밀번호 변경 API는 별도 엔드포인트 필요
+        alert("비밀번호 변경 기능은 추후 구현 예정입니다.");
+      }
+
+      // 전화번호 변경 시 인증 확인
+      if (formData.phone !== user?.phone && !verificationStatus.phone) {
+        setError("전화번호 인증을 완료해주세요.");
+        setIsLoading(false);
         return;
       }
 
-      // 새 비밀번호 검증
-      if (formData.newPassword.length < 8) {
-        alert("새 비밀번호는 최소 8자 이상이어야 합니다.");
-        return;
+      // 프로필 이미지와 전화번호 업데이트 API 호출
+      const updateData: { image?: string; phone?: string } = {};
+
+      if (profileImagePreview && profileImagePreview !== user?.profileImage) {
+        updateData.image = profileImagePreview;
       }
 
-      // 새 비밀번호 확인
-      if (formData.newPassword !== formData.newPasswordConfirm) {
-        alert("새 비밀번호가 일치하지 않습니다.");
-        return;
+      if (formData.phone !== user?.phone) {
+        updateData.phone = formData.phone;
       }
 
-      // TODO: 실제 비밀번호 변경 API 호출
-      console.log("비밀번호 변경");
+      // 변경사항이 있을 때만 API 호출
+      if (Object.keys(updateData).length > 0) {
+        const result = await updateUserInfo(updateData);
+
+        if (result.success) {
+          alert("프로필이 성공적으로 수정되었습니다.");
+          router.push("/profile");
+        } else {
+          setError(result.error || "프로필 수정에 실패했습니다.");
+        }
+      } else {
+        alert("변경된 정보가 없습니다.");
+        router.push("/profile");
+      }
+    } catch (err) {
+      setError("프로필 수정 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
     }
-
-    // 전화번호 변경 시 인증 확인
-    if (formData.phone !== user?.phone && !verificationStatus.phone) {
-      alert("전화번호 인증을 완료해주세요.");
-      return;
-    }
-
-    // TODO: 실제 업데이트 API 호출
-    updateUser({
-      phone: formData.phone,
-    });
-
-    alert("프로필이 성공적으로 수정되었습니다.");
-    router.push("/profile");
   };
 
   const handleCancel = () => {
     router.push("/profile");
   };
-
-  useEffect(() => {
-    if (!user) {
-      router.push("/login");
-    }
-  }, [user, router]);
 
   if (!user) {
     return null;
@@ -161,6 +190,12 @@ export default function ProfileEditPage() {
               회원 정보를 수정할 수 있습니다.
             </p>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 기본 정보 카드 */}
@@ -310,10 +345,19 @@ export default function ProfileEditPage() {
                       name="phone"
                       type="tel"
                       value={formData.phone}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        handleChange(e);
+                        // 전화번호 변경 시 인증 상태 초기화
+                        if (e.target.value !== user?.phone) {
+                          setVerificationStatus({ phone: false });
+                          setShowVerification(false);
+                        } else {
+                          // 원래 번호로 돌아오면 인증 불필요
+                          setVerificationStatus({ phone: true });
+                        }
+                      }}
                       placeholder="전화번호를 입력하세요"
                       required
-                      disabled={verificationStatus.phone}
                     />
                     {formData.phone !== user.phone &&
                       !verificationStatus.phone && (
@@ -327,9 +371,10 @@ export default function ProfileEditPage() {
                         </Button>
                       )}
                   </div>
-                  {verificationStatus.phone && (
-                    <p className="text-sm text-green-600">✓ 인증 완료</p>
-                  )}
+                  {verificationStatus.phone &&
+                    formData.phone !== user.phone && (
+                      <p className="text-sm text-green-600">✓ 인증 완료</p>
+                    )}
                 </div>
 
                 {showVerification && !verificationStatus.phone && (
@@ -361,10 +406,16 @@ export default function ProfileEditPage() {
 
             {/* 버튼 영역 */}
             <div className="flex gap-4 justify-end">
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}>
                 취소
               </Button>
-              <Button type="submit">저장</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "저장 중..." : "저장"}
+              </Button>
             </div>
           </form>
         </div>
@@ -372,3 +423,5 @@ export default function ProfileEditPage() {
     </div>
   );
 }
+
+export default withAuth(ProfileEditPage);
