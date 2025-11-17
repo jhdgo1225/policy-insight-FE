@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { withAuth } from "@/components/auth/RouteGuard";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +18,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Phone, Edit, LogOut, Trash2 } from "lucide-react";
 
-export default function ProfilePage() {
+function ProfilePage() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { refreshUser } = useAuth();
 
+  // 컴포넌트 마운트 시 최신 사용자 정보 가져오기
   useEffect(() => {
-    if (!user) {
-      router.push("/login");
-    }
-  }, [user, router]);
+    refreshUser();
+  }, [refreshUser]);
 
   const handleLogout = () => {
     logout();
@@ -158,3 +160,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+export default withAuth(ProfilePage);
