@@ -1,14 +1,21 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { withGuest } from "@/components/auth/RouteGuard";
 
-export default function RegisterStep1() {
+function RegisterStep1() {
   const [allAgreed, setAllAgreed] = useState(false);
   const [terms, setTerms] = useState({
     service: false,
@@ -28,7 +35,7 @@ export default function RegisterStep1() {
 
   const handleNext = () => {
     if (terms.service && terms.privacy && terms.thirdParty) {
-      router.push('/register/step2');
+      router.push("/register/step2");
     }
   };
 
@@ -36,7 +43,9 @@ export default function RegisterStep1() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12">
       <div className="w-full max-w-2xl p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Policy Insight</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Policy Insight
+          </h1>
           <p className="text-sm text-gray-600">회원가입</p>
         </div>
 
@@ -70,8 +79,7 @@ export default function RegisterStep1() {
                 />
                 <Label
                   htmlFor="all"
-                  className="text-base font-semibold cursor-pointer"
-                >
+                  className="text-base font-semibold cursor-pointer">
                   전체 동의
                 </Label>
               </div>
@@ -139,15 +147,15 @@ export default function RegisterStep1() {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => router.push('/login')}
-              >
+                onClick={() => router.push("/login")}>
                 취소
               </Button>
               <Button
                 className="flex-1"
                 onClick={handleNext}
-                disabled={!terms.service || !terms.privacy || !terms.thirdParty}
-              >
+                disabled={
+                  !terms.service || !terms.privacy || !terms.thirdParty
+                }>
                 다음
               </Button>
             </div>
@@ -157,3 +165,5 @@ export default function RegisterStep1() {
     </div>
   );
 }
+
+export default withGuest(RegisterStep1);

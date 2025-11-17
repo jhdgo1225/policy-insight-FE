@@ -1,18 +1,21 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react';
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle } from "lucide-react";
+import { withGuest } from "@/components/auth/RouteGuard";
 
-export default function RegisterComplete() {
+function RegisterComplete() {
   const router = useRouter();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Policy Insight</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Policy Insight
+          </h1>
           <p className="text-sm text-gray-600">회원가입</p>
         </div>
 
@@ -37,7 +40,7 @@ export default function RegisterComplete() {
             <div className="flex justify-center">
               <CheckCircle className="w-20 h-20 text-green-500" />
             </div>
-            
+
             <div className="space-y-2">
               <p className="text-lg font-semibold">
                 Policy Insight 회원가입이 완료되었습니다!
@@ -50,8 +53,7 @@ export default function RegisterComplete() {
             <Button
               className="w-full"
               size="lg"
-              onClick={() => router.push('/dashboard')}
-            >
+              onClick={() => router.push("/dashboard")}>
               시작하기
             </Button>
           </CardContent>
@@ -60,3 +62,5 @@ export default function RegisterComplete() {
     </div>
   );
 }
+
+export default withGuest(RegisterComplete);

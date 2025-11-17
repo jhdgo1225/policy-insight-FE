@@ -1,27 +1,36 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuthStore } from '@/store/authStore';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
+import { withGuest } from "@/components/auth/RouteGuard";
 
-export default function RegisterStep2() {
+function RegisterStep2() {
   const [formData, setFormData] = useState({
-    email: '',
-    emailCode: '',
-    password: '',
-    passwordConfirm: '',
-    name: '',
-    phone: '',
-    phoneCode: '',
+    email: "",
+    emailCode: "",
+    password: "",
+    passwordConfirm: "",
+    name: "",
+    phone: "",
+    phoneCode: "",
   });
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [phoneCodeSent, setPhoneCodeSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
-  const register = useAuthStore((state) => state.register);
+  const { signup } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -31,45 +40,93 @@ export default function RegisterStep2() {
   };
 
   const handleEmailVerification = () => {
-    // 더미 이메일 인증
-    setEmailVerified(true);
-    alert('이메일 인증번호가 발송되었습니다.');
+    // 인증번호 발송 (실제 API는 나중에 구현)
+    setEmailCodeSent(true);
+    alert("이메일 인증번호가 발송되었습니다.");
   };
 
   const handlePhoneVerification = () => {
-    // 더미 전화번호 인증
-    setPhoneVerified(true);
-    alert('전화번호 인증번호가 발송되었습니다.');
+    // 인증번호 발송 (실제 API는 나중에 구현)
+    setPhoneCodeSent(true);
+    alert("전화번호 인증번호가 발송되었습니다.");
+  };
+
+  const handleBack = () => {
+    router.back();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setError("");
+
+    // 1. 비밀번호 일치 확인
     if (formData.password !== formData.passwordConfirm) {
-      alert('비밀번호가 일치하지 않습니다.');
+      setError("비밀번호가 일치하지 않습니다.");
       return;
     }
 
-    if (!emailVerified || !phoneVerified) {
-      alert('이메일과 전화번호 인증을 완료해주세요.');
+    // 2. 비밀번호 유효성 검사 (8자 이상, 영문, 숫자, 특수문자 포함)
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError(
+        "비밀번호는 영문, 숫자, 특수문자를 포함한 8자 이상이어야 합니다."
+      );
       return;
     }
 
-    await register({
-      email: formData.email,
-      name: formData.name,
-      phone: formData.phone,
-      password: formData.password,
-    });
+    // 3. 이메일 인증번호 6자리 확인
+    if (!emailCodeSent || formData.emailCode.length !== 6) {
+      setError("이메일 인증번호 6자리를 입력해주세요.");
+      return;
+    }
 
-    router.push('/register/complete');
+    // 4. 전화번호 인증번호 6자리 확인
+    if (!phoneCodeSent || formData.phoneCode.length !== 6) {
+      setError("전화번호 인증번호 6자리를 입력해주세요.");
+      return;
+    }
+
+    // 5. 전화번호 형식 확인 (숫자만, 10-11자리)
+    const phoneRegex = /^[0-9]{10,11}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      setError("올바른 전화번호 형식이 아닙니다. (숫자만 10-11자리)");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // API 호출
+      const result = await signup({
+        email: formData.email,
+        name: formData.name,
+        phone: formData.phone,
+        password: formData.password,
+      });
+
+      if (result.success) {
+        // 성공 시 회원가입 완료 페이지로 이동
+        router.push("/register/complete");
+      } else {
+        // 실패 시 에러 메시지 표시
+        setError(result.error || "회원가입에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("회원가입 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12">
       <div className="w-full max-w-2xl p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Policy Insight</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Policy Insight
+          </h1>
           <p className="text-sm text-gray-600">회원가입</p>
         </div>
 
@@ -95,6 +152,12 @@ export default function RegisterStep2() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  {error}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">이메일 *</Label>
                 <div className="flex gap-2">
@@ -106,30 +169,38 @@ export default function RegisterStep2() {
                     value={formData.email}
                     onChange={handleInputChange}
                     required
+                    disabled={isLoading}
+                    autoComplete="email"
                     className="flex-1"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleEmailVerification}
-                    disabled={!formData.email}
-                  >
+                    disabled={!formData.email || isLoading}>
                     인증번호 발송
                   </Button>
                 </div>
               </div>
 
-              {emailVerified && (
+              {emailCodeSent && (
                 <div className="space-y-2">
                   <Label htmlFor="emailCode">이메일 인증번호 *</Label>
                   <Input
                     id="emailCode"
                     name="emailCode"
+                    type="text"
                     placeholder="인증번호 6자리"
                     value={formData.emailCode}
                     onChange={handleInputChange}
+                    maxLength={6}
                     required
+                    disabled={isLoading}
+                    autoComplete="one-time-code"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    6자리 숫자를 입력하세요
+                  </p>
                 </div>
               )}
 
@@ -143,6 +214,8 @@ export default function RegisterStep2() {
                   value={formData.password}
                   onChange={handleInputChange}
                   required
+                  disabled={isLoading}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -156,6 +229,8 @@ export default function RegisterStep2() {
                   value={formData.passwordConfirm}
                   onChange={handleInputChange}
                   required
+                  disabled={isLoading}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -168,6 +243,8 @@ export default function RegisterStep2() {
                   value={formData.name}
                   onChange={handleInputChange}
                   required
+                  disabled={isLoading}
+                  autoComplete="name"
                 />
               </div>
 
@@ -182,44 +259,52 @@ export default function RegisterStep2() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
+                    disabled={isLoading}
+                    autoComplete="tel"
                     className="flex-1"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePhoneVerification}
-                    disabled={!formData.phone}
-                  >
+                    disabled={!formData.phone || isLoading}>
                     인증번호 발송
                   </Button>
                 </div>
               </div>
 
-              {phoneVerified && (
+              {phoneCodeSent && (
                 <div className="space-y-2">
                   <Label htmlFor="phoneCode">전화번호 인증번호 *</Label>
                   <Input
                     id="phoneCode"
                     name="phoneCode"
+                    type="text"
                     placeholder="인증번호 6자리"
                     value={formData.phoneCode}
                     onChange={handleInputChange}
+                    maxLength={6}
                     required
+                    disabled={isLoading}
+                    autoComplete="one-time-code"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    6자리 숫자를 입력하세요
+                  </p>
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-4">
                 <Button
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => router.push('/register')}
-                >
+                  onClick={handleBack}
+                  disabled={isLoading}>
                   이전
                 </Button>
-                <Button type="submit" className="flex-1">
-                  회원가입
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? "가입 중..." : "회원가입"}
                 </Button>
               </div>
             </form>
@@ -229,3 +314,5 @@ export default function RegisterStep2() {
     </div>
   );
 }
+
+export default withGuest(RegisterStep2);
