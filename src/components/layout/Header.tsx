@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -12,17 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/hooks/useAuth";
 import { User, LogOut } from "lucide-react";
 
 export default function Header() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
   };
 
   return (
@@ -79,10 +77,12 @@ export default function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/profile")}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>프로필</span>
-                </DropdownMenuItem>
+                <Link href="/profile">
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>프로필</span>
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>로그아웃</span>
