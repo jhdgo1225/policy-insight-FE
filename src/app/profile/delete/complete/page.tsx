@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,21 +12,81 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
-export default function DeleteAccountCompletePage() {
+function DeleteAccountCompletePage() {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { deleteAccount } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    // TODO: 실제 회원 탈퇴 API 호출
-    console.log("회원 탈퇴 처리");
-  }, []);
+    const handleDeleteAccount = async () => {
+      try {
+        const result = await deleteAccount();
+
+        if (!result.success) {
+          setError(result.error || "회원 탈퇴에 실패했습니다.");
+        }
+      } catch {
+        setError("회원 탈퇴 처리 중 오류가 발생했습니다.");
+      } finally {
+        setIsDeleting(false);
+      }
+    };
+
+    handleDeleteAccount();
+  }, [deleteAccount]);
 
   const handleGoToMain = () => {
-    logout();
     router.push("/");
   };
+
+  // 탈퇴 처리 중
+  if (isDeleting) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">회원 탈퇴 처리 중...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 탈퇴 실패
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="professional-container py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader className="text-center pb-4">
+                <div className="flex justify-center mb-4">
+                  <div className="rounded-full bg-red-100 p-3">
+                    <AlertCircle className="h-12 w-12 text-red-600" />
+                  </div>
+                </div>
+                <CardTitle className="text-2xl">회원 탈퇴 실패</CardTitle>
+                <CardDescription className="text-base mt-2">
+                  {error}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => router.push("/profile")}
+                  className="w-full">
+                  프로필로 돌아가기
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -90,7 +150,7 @@ export default function DeleteAccountCompletePage() {
 
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground">
-                    더 나은 서비스로 다시 찾아뵙겠습니다.
+                    더 나은 서비스로 다시 찾아뽙겠습니다.
                   </p>
                 </div>
               </CardContent>
@@ -101,3 +161,5 @@ export default function DeleteAccountCompletePage() {
     </div>
   );
 }
+
+export default DeleteAccountCompletePage;

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { withAuth } from "@/components/auth/RouteGuard";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,15 +14,9 @@ import {
 } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 
-export default function DeleteAccountPage() {
+function DeleteAccountPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-
-  useEffect(() => {
-    if (!user) {
-      router.push("/login");
-    }
-  }, [user, router]);
 
   const handleCancel = () => {
     router.push("/profile");
@@ -151,3 +145,5 @@ export default function DeleteAccountPage() {
     </div>
   );
 }
+
+export default withAuth(DeleteAccountPage);
