@@ -15,14 +15,18 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { withGuest } from "@/components/auth/RouteGuard";
 
-export default function FindAccountPage() {
+function FindAccountPage() {
   const [activeTab, setActiveTab] = useState("findId");
   const [verificationMethod, setVerificationMethod] = useState<
     "email" | "phone"
   >("email");
   const [step, setStep] = useState<"input" | "verify" | "result">("input");
   const [foundId, setFoundId] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     phone: "",
@@ -32,6 +36,7 @@ export default function FindAccountPage() {
     confirmPassword: "",
   });
   const router = useRouter();
+  const { findId, changePasswordNoLogin } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -45,22 +50,56 @@ export default function FindAccountPage() {
     alert("인증번호가 발송되었습니다.");
   };
 
-  const handleVerifyCode = () => {
-    if (activeTab === "findId") {
-      setFoundId("user@example.com");
-      setStep("result");
-    } else {
-      setStep("result");
+  const handleVerifyCode = async () => {
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (activeTab === "findId") {
+        // 아이디 찾기 API 호출
+        const result = await findId(formData.email);
+        if (result.success) {
+          setFoundId(result.id || "");
+          setStep("result");
+        } else {
+          setError(result.error || "아이디를 찾을 수 없습니다.");
+        }
+      } else {
+        setStep("result");
+      }
+    } catch (err) {
+      setError("처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("비밀번호가 일치하지 않습니다.");
+      setError("비밀번호가 일치하지 않습니다.");
       return;
     }
-    alert("비밀번호가 재설정되었습니다.");
-    router.push("/login");
+
+    setError("");
+    setIsLoading(true);
+
+    try {
+      // 비밀번호 변경 API 호출
+      const result = await changePasswordNoLogin(
+        formData.userId,
+        formData.newPassword
+      );
+      if (result.success) {
+        alert("비밀번호가 재설정되었습니다.");
+        router.push("/login");
+      } else {
+        setError(result.error || "비밀번호 재설정에 실패했습니다.");
+      }
+    } catch (err) {
+      setError("처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -94,25 +133,32 @@ export default function FindAccountPage() {
               </TabsList>
 
               <TabsContent value="findId" className="space-y-4">
+                {error && activeTab === "findId" && (
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
+                )}
+
                 {step === "input" && (
                   <>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="phone">전화번호</Label>
+                        <Label htmlFor="email">이메일</Label>
                         <div className="flex gap-2">
                           <Input
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            placeholder="01012345678"
-                            value={formData.phone}
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="example@email.com"
+                            value={formData.email}
                             onChange={handleInputChange}
+                            disabled={isLoading}
                           />
                           <Button
                             variant="outline"
-                            onClick={handleSendVerification}
-                            disabled={!formData.phone}>
-                            인증
+                            onClick={handleVerifyCode}
+                            disabled={!formData.email || isLoading}>
+                            {isLoading ? "처리 중..." : "찾기"}
                           </Button>
                         </div>
                       </div>
@@ -130,13 +176,14 @@ export default function FindAccountPage() {
                         placeholder="인증번호 6자리"
                         value={formData.verificationCode}
                         onChange={handleInputChange}
+                        disabled={isLoading}
                       />
                     </div>
                     <Button
                       className="w-full"
                       onClick={handleVerifyCode}
-                      disabled={!formData.verificationCode}>
-                      확인
+                      disabled={!formData.verificationCode || isLoading}>
+                      {isLoading ? "확인 중..." : "확인"}
                     </Button>
                   </div>
                 )}
@@ -161,6 +208,12 @@ export default function FindAccountPage() {
               </TabsContent>
 
               <TabsContent value="findPassword" className="space-y-4">
+                {error && activeTab === "findPassword" && (
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
+                )}
+
                 {step === "input" && (
                   <>
                     <div className="space-y-4">
@@ -173,6 +226,7 @@ export default function FindAccountPage() {
                           placeholder="example@email.com"
                           value={formData.userId}
                           onChange={handleInputChange}
+                          disabled={isLoading}
                         />
                       </div>
 
@@ -186,11 +240,14 @@ export default function FindAccountPage() {
                             placeholder="01012345678"
                             value={formData.phone}
                             onChange={handleInputChange}
+                            disabled={isLoading}
                           />
                           <Button
                             variant="outline"
                             onClick={handleSendVerification}
-                            disabled={!formData.phone || !formData.userId}>
+                            disabled={
+                              !formData.phone || !formData.userId || isLoading
+                            }>
                             인증
                           </Button>
                         </div>
@@ -209,13 +266,14 @@ export default function FindAccountPage() {
                         placeholder="인증번호 6자리"
                         value={formData.verificationCode}
                         onChange={handleInputChange}
+                        disabled={isLoading}
                       />
                     </div>
                     <Button
                       className="w-full"
                       onClick={handleVerifyCode}
-                      disabled={!formData.verificationCode}>
-                      다음
+                      disabled={!formData.verificationCode || isLoading}>
+                      {isLoading ? "확인 중..." : "다음"}
                     </Button>
                   </div>
                 )}
@@ -231,6 +289,7 @@ export default function FindAccountPage() {
                         placeholder="영문, 숫자, 특수문자 포함 8자 이상"
                         value={formData.newPassword}
                         onChange={handleInputChange}
+                        disabled={isLoading}
                       />
                     </div>
                     <div className="space-y-2">
@@ -242,15 +301,18 @@ export default function FindAccountPage() {
                         placeholder="비밀번호를 다시 입력하세요"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
+                        disabled={isLoading}
                       />
                     </div>
                     <Button
                       className="w-full"
                       onClick={handleResetPassword}
                       disabled={
-                        !formData.newPassword || !formData.confirmPassword
+                        !formData.newPassword ||
+                        !formData.confirmPassword ||
+                        isLoading
                       }>
-                      비밀번호 재설정
+                      {isLoading ? "재설정 중..." : "비밀번호 재설정"}
                     </Button>
                   </div>
                 )}
@@ -268,3 +330,5 @@ export default function FindAccountPage() {
     </div>
   );
 }
+
+export default withGuest(FindAccountPage);
